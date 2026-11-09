@@ -67,6 +67,12 @@ Tham chiếu chi tiết: `outputs/annotation_evaluation.json`
 | mAP50 | 0.2737 |
 | mAP50–95 | 0.2018 |
 
+*Tài liệu và hình ảnh đánh giá (assets đính kèm):*
+- Biểu đồ huấn luyện & loss: [results.png](assets/yolo26_runs/vehicle_annotation/results.png) | File log: [results.csv](assets/yolo26_runs/vehicle_annotation/results.csv)
+- Ma trận nhầm lẫn chuẩn hóa: [confusion_matrix_normalized.png](assets/yolo26_runs/vehicle_eval/confusion_matrix_normalized.png)
+- Đường cong PR Curve: [BoxPR_curve.png](assets/yolo26_runs/vehicle_eval/BoxPR_curve.png)
+- Minh họa dự đoán trực quan trên 10 ảnh eval: [assets/eval_predictions/visuals/](assets/eval_predictions/visuals/) (ví dụ [drive_055.jpg](assets/eval_predictions/visuals/drive_055.jpg), [drive_058.jpg](assets/eval_predictions/visuals/drive_058.jpg))
+
 *Chi tiết từng lớp trên tập eval (113 instances):*
 - `car` (94 xe): Precision = 0.836, Recall = 0.653, mAP50 = 0.738, mAP50-95 = 0.523
 - `truck` (5 xe): Precision = 0.656, Recall = 0.200, mAP50 = 0.239, mAP50-95 = 0.206
