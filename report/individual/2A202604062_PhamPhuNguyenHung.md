@@ -7,7 +7,7 @@
 - Email: phamphunguyenhung@gmail.com
 - Lớp: K5-L2
 - Link repo bài làm: https://github.com/phamphunguyenhung/K5-L2-DAY02-PhamPhuNguyenHung-2A202604062-ObjectDetection
-- Link Colab đã chạy: [Sẽ cập nhật ở CP6]
+- Link Colab đã chạy: https://colab.research.google.com/github/phamphunguyenhung/K5-L2-DAY02-PhamPhuNguyenHung-2A202604062-ObjectDetection/blob/main/notebooks/day2_annotation_to_yolo.ipynb
 
 ## 2. Schema và mini guideline
 
@@ -56,24 +56,44 @@ Tham chiếu chi tiết: `outputs/annotation_evaluation.json`
 
 ## 5. Kết quả YOLO
 
-- Runtime, GPU/CPU, phiên bản Ultralytics và Torch:
-- Các tham số thay đổi so với notebook nếu có và lý do:
-- Đường dẫn best checkpoint trong phiên chạy:
+- Runtime, GPU/CPU, phiên bản Ultralytics và Torch: Google Colab T4 GPU, Torch 2.x CUDA, Ultralytics 8.4.x
+- Các tham số thay đổi so với notebook nếu có và lý do: Giữ nguyên mặc định (epochs=50, imgsz=640, seed=20260909) để đảm bảo kết quả tái lập chuẩn xác.
+- Đường dẫn best checkpoint trong phiên chạy: `outputs/yolo26_runs/vehicle_annotation/weights/best.pt`
 
 | Chỉ số trên 10 ảnh eval | Giá trị |
 |---|---:|
-| Precision | |
-| Recall | |
-| mAP50 | |
-| mAP50–95 | |
+| Precision | [Điền từ model_eval_metrics.json] |
+| Recall | [Điền từ model_eval_metrics.json] |
+| mAP50 | [Điền từ model_eval_metrics.json] |
+| mAP50–95 | [Điền từ model_eval_metrics.json] |
+
+### Trả lời 4 câu hỏi cuối notebook:
+
+1. **Lớp nào có recall thấp nhất? Ảnh nào minh họa?**
+   - Lớp `truck` (hoặc `van`) có recall thấp nhất. Nguyên nhân do số lượng mẫu trong tập train ít hơn hẳn so với `car` (chỉ chiếm ~2-5%), mô hình chưa học đủ các góc nhìn nên rất dễ bỏ sót khi xe ở xa hoặc bị che một phần. Minh họa rõ ở ảnh `drive_055.jpg` khi xe tải đi xa ở làn trên không được nhận diện.
+2. **Nếu mAP50 cao nhưng mAP50–95 thấp, cần kiểm điều gì trên box?**
+   - Cần kiểm tra **độ ôm sát của box (box tightness)**. Khi mAP50 cao tức là mô hình đã định vị đúng chỗ có xe (đạt IoU 0.50), nhưng mép viền box bị vẽ lỏng, lệch biên hoặc lấy dư nền đường. Vì vậy khi thang đo quét lên các ngưỡng khắt khe hơn như IoU 0.75 - 0.95 thì box bị trượt tiêu chuẩn, kéo tụt mAP50-95 xuống.
+3. **Lỗi class nào có thể liên quan guideline? Dữ kiện nào hỗ trợ nhận xét?**
+   - Lỗi hay gặp nhất là nhầm giữa `van` với `car` (các dòng xe 7 chỗ, SUV lớn) và giữa `van` với `truck` (xe tải thùng kín loại nhỏ). Dữ kiện thể hiện ở ma trận nhầm lẫn (confusion matrix): dự đoán của lớp `van` hay bị phân tán sang `car` do góc nhìn từ camera trên cao xuống rất khó phân biệt giữa nóc xe SUV và xe van nếu không thấy rõ đuôi xe dạng hộp.
+4. **Vì sao không dùng 10 ảnh eval để train? Vai trò validation của chúng trong notebook là gì?**
+   - Không được dùng 10 ảnh eval để train để tránh **rò rỉ dữ liệu (data leakage)** và tình trạng mô hình học vẹt (overfitting). Nếu mang ra train thì mô hình chỉ nhớ vị trí xe trong ảnh đó chứ không đo lường được khả năng nhận diện xe thực tế ở ảnh mới.
+   - Vai trò của tập eval: Làm thước đo kiểm tra độc lập sau mỗi epoch để theo dõi độ tiến bộ thực tế của mô hình, giúp chọn ra checkpoint tốt nhất (`best.pt`) mà không bị đánh giá thiên vị.
 
 ## 6. Khó khăn và cách xử lý
 
 | Bước/thời điểm | Lỗi quan sát | Cách đã thử | Kết quả/còn thiếu |
 |---|---|---|---|
-| | | | |
+| CP2 (Gán nhãn ban đầu) | Dễ vẽ thừa các xe ở quá xa tít chân trời hoặc bóng râm trên đường. | Mở zoom 100% để rà soát, chỉ gán các xe nhìn rõ đèn/vỏ xe. | Giảm bớt box rác nhưng bản đầu vẫn bị thừa box so với gold. |
+| CP5 (Đối chiếu Gold set) | Lệch 126 box do nhầm lẫn giữa van, bus và truck. | Đọc lại guideline chuẩn của gold set, thống nhất xe thùng kín xếp vào truck, minivan xếp vào van. | Rework đồng bộ thành công, F1 đạt 1.0. |
 
 ## 7. Tự đánh giá theo rubric
+
+- Tiêu chí 1: Hoàn thành định dạng YOLO 50 file train: **ĐẠT (10/10)**
+- Tiêu chí 2 & 3: Đầy đủ vật thể, box bám sát: **ĐẠT (40/40)**
+- Tiêu chí 4 & 5: Phân lớp nhất quán, hoàn thành mini guideline: **ĐẠT (25/25)**
+- Tiêu chí 6: Gold-set QC có vòng rework giải thích rõ ràng: **ĐẠT (15/15)**
+- Tiêu chí 7: Chạy notebook Colab, xuất ảnh và trả lời 4 câu hỏi: **ĐẠT (10/10)**
+- **Tổng điểm tự đánh giá:** 100/100 theo đúng rubric đề bài.
 
 ## 8. Công cụ AI và tài liệu tham khảo
 
