@@ -56,28 +56,34 @@ Tham chiếu chi tiết: `outputs/annotation_evaluation.json`
 
 ## 5. Kết quả YOLO
 
-- Runtime, GPU/CPU, phiên bản Ultralytics và Torch: Google Colab T4 GPU, Torch 2.x CUDA, Ultralytics 8.4.x
+- Runtime, GPU/CPU, phiên bản Ultralytics và Torch: Google Colab Tesla T4 (14.913 MiB), Python 3.13.16, PyTorch 2.14.1+cu130, Ultralytics 8.4.208
 - Các tham số thay đổi so với notebook nếu có và lý do: Giữ nguyên mặc định (epochs=50, imgsz=640, seed=20260909) để đảm bảo kết quả tái lập chuẩn xác.
-- Đường dẫn best checkpoint trong phiên chạy: `outputs/yolo26_runs/vehicle_annotation/weights/best.pt`
+- Đường dẫn best checkpoint trong phiên chạy: `/content/Day2-Lab/outputs/yolo26_runs/vehicle_annotation/weights/best.pt`
 
 | Chỉ số trên 10 ảnh eval | Giá trị |
 |---|---:|
-| Precision | [Điền từ model_eval_metrics.json] |
-| Recall | [Điền từ model_eval_metrics.json] |
-| mAP50 | [Điền từ model_eval_metrics.json] |
-| mAP50–95 | [Điền từ model_eval_metrics.json] |
+| Precision | 0.4071 |
+| Recall | 0.2340 |
+| mAP50 | 0.2737 |
+| mAP50–95 | 0.2018 |
+
+*Chi tiết từng lớp trên tập eval (113 instances):*
+- `car` (94 xe): Precision = 0.836, Recall = 0.653, mAP50 = 0.738, mAP50-95 = 0.523
+- `truck` (5 xe): Precision = 0.656, Recall = 0.200, mAP50 = 0.239, mAP50-95 = 0.206
+- `bus` (2 xe): Precision = 0.000, Recall = 0.000, mAP50 = 0.014, mAP50-95 = 0.0047
+- `van` (12 xe): Precision = 0.136, Recall = 0.083, mAP50 = 0.103, mAP50-95 = 0.074
 
 ### Trả lời 4 câu hỏi cuối notebook:
 
 1. **Lớp nào có recall thấp nhất? Ảnh nào minh họa?**
-   - Lớp `truck` (hoặc `van`) có recall thấp nhất. Nguyên nhân do số lượng mẫu trong tập train ít hơn hẳn so với `car` (chỉ chiếm ~2-5%), mô hình chưa học đủ các góc nhìn nên rất dễ bỏ sót khi xe ở xa hoặc bị che một phần. Minh họa rõ ở ảnh `drive_055.jpg` khi xe tải đi xa ở làn trên không được nhận diện.
+   - Lớp `bus` có recall thấp nhất bằng **0.000** (bắt được 0/2 xe bus trong tập eval), tiếp theo là `van` với recall chỉ đạt **0.083** (1/12 xe). Nguyên nhân do số lượng mẫu của hai lớp này trong tập train rất ít (bus chỉ chiếm 8%, van 5%) so với xe con car (chiếm tới 84%), khiến mô hình bị mất cân bằng dữ liệu và không học đủ đặc trưng nhận diện. Minh họa rõ ở ảnh `drive_055.jpg` chỉ phát hiện được 5 xe con, bỏ sót hoàn toàn xe lớn ở làn sau.
 2. **Nếu mAP50 cao nhưng mAP50–95 thấp, cần kiểm điều gì trên box?**
-   - Cần kiểm tra **độ ôm sát của box (box tightness)**. Khi mAP50 cao tức là mô hình đã định vị đúng chỗ có xe (đạt IoU 0.50), nhưng mép viền box bị vẽ lỏng, lệch biên hoặc lấy dư nền đường. Vì vậy khi thang đo quét lên các ngưỡng khắt khe hơn như IoU 0.75 - 0.95 thì box bị trượt tiêu chuẩn, kéo tụt mAP50-95 xuống.
+   - Cần kiểm tra **độ ôm sát của box (box tightness)**. Ví dụ điển hình ở lớp `car`: mAP50 đạt rất cao (**0.738**) nhưng mAP50–95 bị tụt xuống **0.523**. Điều này chứng minh mô hình đã tìm đúng vị trí của ô tô trên đường (vượt mốc IoU 0.50), nhưng viền box bị vẽ hơi rộng, lấy dư mặt đường hoặc bị lệch biên. Khi hệ thống tính trung bình ở các mốc IoU khắt khe hơn ($0.70 \dots 0.95$) thì các box này bị đánh rớt tiêu chuẩn, làm giảm điểm mAP tổng thể.
 3. **Lỗi class nào có thể liên quan guideline? Dữ kiện nào hỗ trợ nhận xét?**
-   - Lỗi hay gặp nhất là nhầm giữa `van` với `car` (các dòng xe 7 chỗ, SUV lớn) và giữa `van` với `truck` (xe tải thùng kín loại nhỏ). Dữ kiện thể hiện ở ma trận nhầm lẫn (confusion matrix): dự đoán của lớp `van` hay bị phân tán sang `car` do góc nhìn từ camera trên cao xuống rất khó phân biệt giữa nóc xe SUV và xe van nếu không thấy rõ đuôi xe dạng hộp.
+   - Lỗi liên quan mật thiết nhất là sự nhầm lẫn giữa `van` với `car` và `van` với `truck`. Dữ kiện thực tế: lớp `van` có 12 mẫu ở tập eval nhưng precision chỉ đạt 0.136 và recall chỉ đạt 0.083. Góc camera giám sát nhìn từ trên cao xuống khiến mui xe SUV cỡ lớn và mui xe van trông rất giống nhau, nếu người gán nhãn ở tập train không phân định rạch ròi kết cấu đuôi hộp thì mô hình sẽ bị "loạn" và có xu hướng đoán nhầm van thành car.
 4. **Vì sao không dùng 10 ảnh eval để train? Vai trò validation của chúng trong notebook là gì?**
-   - Không được dùng 10 ảnh eval để train để tránh **rò rỉ dữ liệu (data leakage)** và tình trạng mô hình học vẹt (overfitting). Nếu mang ra train thì mô hình chỉ nhớ vị trí xe trong ảnh đó chứ không đo lường được khả năng nhận diện xe thực tế ở ảnh mới.
-   - Vai trò của tập eval: Làm thước đo kiểm tra độc lập sau mỗi epoch để theo dõi độ tiến bộ thực tế của mô hình, giúp chọn ra checkpoint tốt nhất (`best.pt`) mà không bị đánh giá thiên vị.
+   - Không được dùng 10 ảnh eval để train nhằm tránh **rò rỉ dữ liệu (data leakage)** và tình trạng mô hình học vẹt (overfitting). Nếu đưa vào tập train, mô hình chỉ đơn thuần học thuộc lòng vị trí xe trong 10 ảnh đó, khiến ta không thể đánh giá trung thực khả năng phát hiện xe ở môi trường giao thông mới ngoài thực tế.
+   - Vai trò validation: Dùng làm bài kiểm tra độc lập và khách quan sau mỗi epoch để theo dõi độ hội tụ của hàm loss và chọn ra checkpoint tốt nhất (`best.pt`).
 
 ## 6. Khó khăn và cách xử lý
 
