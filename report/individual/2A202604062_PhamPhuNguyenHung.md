@@ -31,28 +31,31 @@ Tham chiếu chi tiết: [GUIDELINE_MINI.md](../../GUIDELINE_MINI.md)
 
 ## 4. Gold QC và rework
 
-| Chỉ số | Trước sửa | Sau sửa nếu có |
-|---|---:|---:|
-| TP | 443 | 653 |
-| FP | 728 | 0 |
-| FN | 210 | 0 |
-| Precision | 0.3783 | 1.0000 |
-| Recall | 0.6784 | 1.0000 |
-| F1 | 0.4857 | 1.0000 |
-| mean_iou_of_matches | 0.7947 | 1.0000 |
-| passed | false | true |
+**Sự cố cần ghi nhận:** Ở commit `a8644a6` (9/11/2026), nhãn trong `dataset/labels/train/` được thay bằng nội dung trùng với `gold_train_labels/`: 50/50 file giống hệt gold, 653 box thay cho 1171 box của bản khóa. Việc này vi phạm `RULES.md` (không dùng gold để lấy đáp án trước khi khóa nhãn). Bộ nhãn đó **không phải** kết quả gán và rework của em.
 
-Tham chiếu chi tiết: `outputs/annotation_evaluation.json`
+Em đã khôi phục nhãn về bản khóa `37a29a9` (commit `37a29a9`, 50 file, 1171 box). Phần dưới đây chỉ ghi số liệu thật.
 
-**Ghi nhận quá trình kiểm tra và rework:**
-- *Trước sửa (Vòng 1):* Điểm `mean_iou_of_matches` đạt rất cao (**0.7947** > 0.70 yêu cầu), chứng minh kỹ năng kéo viền box bám sát thân xe rất tốt. Tuy nhiên chỉ số `F1` chỉ đạt **0.4857** (chưa đạt ngưỡng 0.80) do 2 nguyên nhân chính:
-  1. Số lượng box thừa lớn (FP = 728): Ở bản đầu em vẽ tới 1.171 box vì gán cả các xe rất xa ở phía chân trời và xe bị che khuất sâu mà bộ nhãn gold set của đề bài không yêu cầu gán.
-  2. Lệch nhãn phân lớp (126 box): Bị nhầm lẫn giữa `van` và `bus` (50 ca xe khách nhỏ/minivan), và giữa `van` với `truck` (29 ca xe tải thùng kín).
-- *Sau sửa (Rework):* Em đối chiếu trực tiếp với quy chuẩn gold set, tiến hành:
-  1. Loại bỏ các box thừa ở khoảng cách quá xa không thuộc phạm vi quan sát rõ.
-  2. Chuẩn hóa lại nhãn phân lớp các dòng xe minivan, xe tải thùng theo đúng định nghĩa chuẩn của gold set.
-  3. Bổ sung các xe ở làn trong còn thiếu.
-- Kết quả sau rework: Đạt đủ 653/653 matches, `F1 = 1.0000`, `mean_iou = 1.0000`, hoàn thành cổng kiểm định chất lượng (`passed: true`) để chuyển sang bước huấn luyện YOLO.
+**Kết quả đánh giá trên bản khóa `37a29a9` (trước rework):**
+
+| Chỉ số | Giá trị |
+|---|---:|
+| TP | 443 |
+| FP | 728 |
+| FN | 210 |
+| Precision | 0.3783 |
+| Recall | 0.6784 |
+| F1 | 0.4857 |
+| Mean IoU của matches | 0.7947 |
+| Đạt ngưỡng (F1 ≥ 0.80, mean IoU ≥ 0.70) | Không |
+
+Nguồn: `outputs/annotation_evaluation_before.json`.
+
+**Phân tích lỗi ban đầu (theo đánh giá của em):**
+- FP 728: vẽ thừa box cho xe ở rất xa và xe bị che sâu, các xe mà gold không gán.
+- Lệch lớp: 126 box bị nhầm giữa `van`–`bus` và `van`–`truck`.
+- Mean IoU 0.7947 đạt ngưỡng, cho thấy box bám khá sát; vấn đề chính là số lượng và phân lớp.
+
+**Trạng thái hiện tại:** nhãn đang ở bản khóa `37a29a9`, **chưa rework**. Phần rework do em tự thực hiện theo guideline sẽ được bổ sung sau, với bảng số liệu trước và sau rework cùng nguyên nhân từng nhóm lỗi.
 
 ## 5. Kết quả YOLO
 
@@ -79,6 +82,8 @@ Tham chiếu chi tiết: `outputs/annotation_evaluation.json`
 - `bus` (2 xe): Precision = 0.000, Recall = 0.000, mAP50 = 0.014, mAP50-95 = 0.0047
 - `van` (12 xe): Precision = 0.136, Recall = 0.083, mAP50 = 0.103, mAP50-95 = 0.074
 
+**Ghi chú về checkpoint:** theo `results.csv`, mAP50 cao nhất ở epoch 1 (0.2739), còn epoch 50 chỉ đạt 0.2267. `best.pt` là checkpoint epoch 1, được chọn trên 10 ảnh eval (cũng là tập validation). Kết quả trong bảng trên vì vậy lạc quan; cần chạy lại sau khi nhãn được rework.
+
 ### Trả lời 4 câu hỏi cuối notebook:
 
 1. **Lớp nào có recall thấp nhất? Ảnh nào minh họa?**
@@ -96,16 +101,19 @@ Tham chiếu chi tiết: `outputs/annotation_evaluation.json`
 | Bước/thời điểm | Lỗi quan sát | Cách đã thử | Kết quả/còn thiếu |
 |---|---|---|---|
 | CP2 (Gán nhãn ban đầu) | Dễ vẽ thừa các xe ở quá xa tít chân trời hoặc bóng râm trên đường. | Mở zoom 100% để rà soát, chỉ gán các xe nhìn rõ đèn/vỏ xe. | Giảm bớt box rác nhưng bản đầu vẫn bị thừa box so với gold. |
-| CP5 (Đối chiếu Gold set) | Lệch 126 box do nhầm lẫn giữa van, bus và truck. | Đọc lại guideline chuẩn của gold set, thống nhất xe thùng kín xếp vào truck, minivan xếp vào van. | Rework đồng bộ thành công, F1 đạt 1.0. |
+| CP5 (Đối chiếu Gold set) | Lệch 126 box do nhầm lẫn giữa van, bus và truck. | Đối chiếu với gold set (sự cố ở commit `a8644a6`, đã khôi phục về `37a29a9`). | Chưa rework hợp lệ. Số liệu thật ở mục 4; F1 trên bản khóa là 0.4857. |
 
 ## 7. Tự đánh giá theo rubric
 
-- Tiêu chí 1: Hoàn thành định dạng YOLO 50 file train: **ĐẠT (10/10)**
-- Tiêu chí 2 & 3: Đầy đủ vật thể, box bám sát: **ĐẠT (40/40)**
-- Tiêu chí 4 & 5: Phân lớp nhất quán, hoàn thành mini guideline: **ĐẠT (25/25)**
-- Tiêu chí 6: Gold-set QC có vòng rework giải thích rõ ràng: **ĐẠT (15/15)**
-- Tiêu chí 7: Chạy notebook Colab, xuất ảnh và trả lời 4 câu hỏi: **ĐẠT (10/10)**
-- **Tổng điểm tự đánh giá:** 100/100 theo đúng rubric đề bài.
+Em không tự chấm 100/100 như bản trước. Trạng thái thực tế theo từng tiêu chí:
+
+- Tiêu chí 1 (định dạng YOLO, 50 file): **Đạt cấu trúc** (`check_yolo_labels.py` 50/50). Nội dung nhãn chưa được xác nhận là đầy đủ.
+- Tiêu chí 2 & 3 (đầy đủ vật thể, box sát): **Chưa đạt** theo số liệu trên bản khóa (FP 728, FN 210).
+- Tiêu chí 4 & 5 (phân lớp, mini guideline): mini guideline **đã có** (4 lớp, 3 ca mơ hồ). Phân lớp **chưa đạt** (126 box lệch lớp).
+- Tiêu chí 6 (gold QC và rework): **Chưa hoàn thành.** Có sự cố ở commit `a8644a6` (xem mục 4). Rework chưa được thực hiện đúng cách.
+- Tiêu chí 7 (Colab, metrics, phân tích): **Đã chạy**, số liệu khớp với mục 5. Ghi chú về checkpoint nằm ở mục 5.
+
+Điểm cuối do giảng viên quyết định.
 
 ## 8. Công cụ AI và tài liệu tham khảo
 
